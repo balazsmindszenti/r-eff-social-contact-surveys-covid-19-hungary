@@ -6,7 +6,6 @@ from dashboard.application.components.contact_matrix_figure import contact_matri
 from dashboard.application.components.contact_scatter import contact_scatter
 from dashboard.application.components.params import params
 from dashboard.application.components.r_eff_plot import fig
-from dashboard.application.data.results import model_storage
 
 
 layout = html.Div(children=[
@@ -15,21 +14,20 @@ layout = html.Div(children=[
         id='outer_container',
         children=[
             html.Button(
-                'Parameter settings',  # filter button
+                children='Parameter settings',  # filter button
                 id='param-settings',
                 style={
                     'text-align': 'center', "width": "100%", 'padding': '10px'
                 }
             ),
+            dcc.Store(id='model-storage', data={}),
             dcc.Dropdown(
                 id='model-selector',
-                options=[
-                    {'label': k, 'value': k}
-                    for k, v in model_storage.items()
-                ],
+                options=[],
+                value=[],
+                placeholder='Select a model',
                 style={'display': 'block'},
-                multi=True,
-                value=[]
+                multi=True
             ),
             params,
             html.Div(

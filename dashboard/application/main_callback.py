@@ -1,38 +1,40 @@
 from copy import deepcopy
 from datetime import datetime
 
+from dash import Output, Input, State
 from matplotlib import pyplot as plt
+from matplotlib.colors import to_hex
 import numpy as np
 import pandas as pd
-from dash import Output, Input, State
-from matplotlib.colors import to_hex
 from plotly import graph_objects as go
 
+from dashboard.application.data.results import contact_data, daterange, sim
 from dashboard.application.main_app import app
-from dashboard.application.data.results import contact_data, daterange, model_storage, sim
 
 
 cmap = plt.get_cmap('nipy_spectral')
 
+
 @app.callback(
     [
-        Output("r_eff_plot", "figure"),
-        Output("contact_scatter", "figure"),
-        Output("infected", "children"),
-        Output('recovered', 'figure'),
-        Output('seasonality-fig', 'figure')
+        Output(component_id="r_eff_plot", component_property="figure"),
+        Output(component_id="contact_scatter", component_property="figure"),
+        Output(component_id="infected", component_property="children"),
+        Output(component_id='recovered', component_property='figure'),
+        Output(component_id='seasonality-fig', component_property='figure')
     ],
     [
-        Input('model-selector', 'value')
+        Input(component_id='model-selector', component_property='value')
     ],
     [
-        State("r_eff_plot", "figure"),
-        State('contact_scatter', 'figure'),
-        State('recovered', 'figure'),
-        State('seasonality-fig', 'figure')
+        State(component_id="r_eff_plot", component_property="figure"),
+        State(component_id='contact_scatter', component_property='figure'),
+        State(component_id='recovered', component_property='figure'),
+        State(component_id='seasonality-fig', component_property='figure'),
+        State(component_id='model-storage', component_property='data')
     ]
 )
-def plot_updater(values, m_fig, cs_fig, r_fig, s_fig):
+def plot_updater(values, m_fig, cs_fig, r_fig, s_fig, model_storage):
     # clear figs
     cs_fig["data"] = []
     r_fig["data"] = []
@@ -42,19 +44,19 @@ def plot_updater(values, m_fig, cs_fig, r_fig, s_fig):
     latent, infected = None, None
     for i, val in enumerate(values[::-1]):
         print(val)
-        sim_h = model_storage[val]
+        sim_h: dict[str, ...] = model_storage[val]
 
         m_fig["data"].append(go.Scatter())
-        m_fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h.timestamps]
-        m_fig["data"][-1]["y"] = sim_h.r_eff_plot
+        m_fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h['timestamps']]
+        m_fig["data"][-1]["y"] = sim_h['r_eff_plot']
         m_fig["data"][-1]["name"] = val
 
         m_fig["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(m_fig["data"]) * 0.5))
 
         bin_edges = np.array(contact_data.start_ts)
-        bin_number = np.digitize(sim_h.timestamps, bin_edges)
+        bin_number = np.digitize(sim_h['timestamps'], bin_edges)
 
-        temp_agg_r_eff = pd.DataFrame([sim_h.timestamps, sim_h.r_eff_plot, bin_number]).T
+        temp_agg_r_eff = pd.DataFrame([sim_h['timestamps'], sim_h['r_eff_plot'], bin_number]).T
         temp_agg_r_eff.columns = ['ts', 'r_eff', 'binnum']
         temp_agg_r_eff = temp_agg_r_eff.groupby('binnum').agg({'ts': 'min', 'r_eff': 'mean'})
         temp_agg_r_eff["contactnum"] = temp_agg_r_eff.index.map(lambda k: contact_data.loc[k]["avg_contactnum"])
@@ -68,40 +70,47 @@ def plot_updater(values, m_fig, cs_fig, r_fig, s_fig):
         cs_fig["data"][-1]["name"] = val
 
         r_fig["data"].append(go.Scatter(mode="markers"))
-        r_fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h.timestamps]
-        r_fig["data"][-1]["y"] = sim_h.rec_ratio
+        r_fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h['timestamps']]
+        r_fig["data"][-1]["y"] = sim_h['rec_ratio']
 
         s_fig["data"].append(go.Scatter(mode="markers"))
-        s_fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h.timestamps]
-        s_fig["data"][-1]["y"] = sim_h.seasonality_values
+        s_fig["data"][-1]["x"] = [datetime.fromtimestamp(t) for t in sim_h['timestamps']]
+        s_fig["data"][-1]["y"] = sim_h['seasonality_values']
 
         for fig_ in [cs_fig, r_fig, s_fig]:
             fig_["data"][-1]["marker"]["color"] = to_hex(cmap(0.5 + i / len(m_fig["data"]) * 0.5))
             fig_["data"][-1]["showlegend"] = False
 
-        latent = sim_h.init_latent
-        infected = sim_h.init_infected
+        latent = sim_h['init_latent']
+        infected = sim_h['init_infected']
 
     return m_fig, cs_fig, f'Latent + Infected at 2020.09.13.: {latent:.0f} + {infected:.0f}', r_fig, s_fig
 
 
 @app.callback(
     [
-        Output('model-selector', 'options'),
-        Output('model-selector', 'value')
+        Output(component_id='model-selector', component_property='options'),
+        Output(component_id='model-selector', component_property='value'),
+        Output(component_id='model-storage', component_property='data')
     ],
     [
-        Input("datepicker", "value"),
-        Input('seasonality', 'value'),
-        Input('is_r_eff_calc', 'on'),
-        Input('baseline_r_0', 'value'),
-        Input('initial_r_0', 'value'),
-        Input('init_ratio_recovered', 'value'),
-        Input('seas_select', 'value')
+        Input(component_id="datepicker", component_property="value"),
+        Input(component_id='seasonality', component_property='value'),
+        Input(component_id='is_r_eff_calc', component_property='on'),
+        Input(component_id='baseline_r_0', component_property='value'),
+        Input(component_id='initial_r_0', component_property='value'),
+        Input(component_id='init_ratio_recovered', component_property='value'),
+        Input(component_id='seas_select', component_property='value')
+    ],
+    [
+        State(component_id='model-storage', component_property='data'),
+        State(component_id='model-selector', component_property='value')
     ]
 )
 def select_period(datepicker_range, c, is_r_eff_calc, r0,
-                  initial_r0, init_ratio_recovered, seas_select):
+                  initial_r0, init_ratio_recovered, seas_select,
+                  model_storage, model_selector_value):
+    # model_storage = model_storage or {}
     start_time = daterange[datepicker_range[0]]
     end_time = daterange[datepicker_range[1]]
 
@@ -136,20 +145,32 @@ def select_period(datepicker_range, c, is_r_eff_calc, r0,
     label += \
         ", initial_r0=%.1f, initial ratio=%.3f, seasonality: %s" \
         % (sim_to_store.initial_r0, sim_to_store.init_ratio_recovered, seas_str)
-    model_storage[label] = sim_to_store
+    model_storage[label] = {
+        'r_eff_plot': sim_to_store.r_eff_plot,
+        'timestamps': sim_to_store.timestamps,
+        'rec_ratio': sim_to_store.rec_ratio,
+        'seasonality_values': sim_to_store.seasonality_values,
+        'init_latent': sim_to_store.init_latent,
+        'init_infected': sim_to_store.init_infected
+    }
 
     options = [
         {'label': k, 'value': k}
         for k, v in model_storage.items()
     ]
-    value = [label]
-    return [options, value]
+    keys = list(model_storage.keys())
+    if model_selector_value in keys:
+        value = model_selector_value
+    else:
+        value = [keys[0]] if keys else None
+    # value = [label]
+    return [options, value, model_storage]
 
 
 @app.callback(
-    Output('contact_matrix', 'figure'),
-    [Input('r_eff_plot', 'hoverData')],
-    [State('contact_matrix', 'figure')]
+    Output(component_id='contact_matrix', component_property='figure'),
+    [Input(component_id='r_eff_plot', component_property='hoverData')],
+    [State(component_id='contact_matrix', component_property='figure')]
 )
 def display_contact_matrix(hoverdata, cm_fig):
     if hoverdata is not None:
@@ -162,10 +183,11 @@ def display_contact_matrix(hoverdata, cm_fig):
 
 
 @app.callback(
-    [Output('filter-elements', 'style'),
-     Output('param-settings', 'style')],
-    [Input('param-settings', 'n_clicks')],
-    [State('filter-elements', 'style'), State('param-settings', 'style')]
+    [Output(component_id='filter-elements', component_property='style'),
+     Output(component_id='param-settings', component_property='style')],
+    [Input(component_id='param-settings', component_property='n_clicks')],
+    [State(component_id='filter-elements', component_property='style'),
+     State(component_id='param-settings', component_property='style')]
 )
 def show_hide_labels(n_clicks, style, button_style):
     print("Callback\tshow_hide_labels")

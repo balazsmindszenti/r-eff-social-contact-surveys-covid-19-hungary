@@ -6,8 +6,6 @@ from src.simulation import Simulation
 sim_1 = Simulation(contact_data_json='dynmatrix_step_1d_window_7d_v15_kid_masked_all.json')
 contact_data = pd.DataFrame(sim_1.data.contact_data_json)
 
-model_storage = {}
-
 sim = Simulation(contact_data_json='dynmatrix_step_1d_window_7d_v15_kid_reduced_all.json')
 methods = sim.data.reference_r_eff_data["method"].sort_values().unique()
 method_mask = sim.data.reference_r_eff_data["method"] == methods[0]
